@@ -1,89 +1,107 @@
-# Persian Title Generator
+Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation: An Empirical Study on 500 Samples 
+# Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation
 
-یک ابزار خط فرمان (CLI) برای تولید عنوان‌های حرفه‌ای فارسی با قابلیت سفارشی‌سازی و بهینه‌سازی برای سئو.
+This repository contains the complete source code, dataset, and experimental results for the paper:
 
-## نمونه خروجی
+> **"Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation: An Empirical Study on 500 Samples"**
 
-![نمونه خروجی برنامه](result1.png)
+📌 **Status:** Currently under review at **Data Mining and Knowledge Discovery** (Springer Nature).
 
-## ویژگی‌ها
+---
 
-- تولید عنوان‌های فارسی با طول حداقل ۵۰ کاراکتر
-- پشتیبانی از حالات مختلف نگارشی (رسمی، غیررسمی، حرفه‌ای، دوستانه، مدرن)
-- پردازش و نمایش صحیح متون فارسی در ترمینال
-- اتصال به OpenAI از طریق OpenRouter API
-- حالت آزمایشی برای تست بدون اتصال به API
+## 📁 Project Structure
+.
+├── evaluation/
+│ ├── benchmark.py # Main benchmarking script (500 samples)
+│ ├── plot_results.py # Plot generation script (for charts)
+│ └── charts/ # Output directory for generated plots
+├── results/ # CSV files with experimental results
+├── persian_seo_dataset.csv # Dataset of 500 samples from 5 domains
+├── requirements.txt # Python dependencies
+├── cli.py # CLI tool for title generation
+└── README.md # This file
 
-## نصب و راه‌اندازی
+text
 
-### پیش‌نیازها
+---
 
-- Python 3.8 یا بالاتر
-- pip (مدیریت پکیج‌های پایتون)
+## 🚀 How to Run
 
-### نصب
-
-1. کلون یا دانلود پروژه:
-```
-git clone https://github.com/stahan04/persian-title-generator-.git
-cd persian-title-generator-
-2.	نصب dependencies:
-
+### 1. Clone the Repository
+```bash
+git clone https://github.com/stahan04/persian-title-generator.git
+cd persian-title-generator
+2. Install Dependencies
+bash
 pip install -r requirements.txt
-3.	تنظیم کلید API (اختیاری):
+3. Run Benchmark on a Subset
+bash
+# Test on 10 samples from all domains
+python evaluation/benchmark.py --model gpt-4o-mini --limit 10
 
-echo "OPENROUTER_API_KEY=your_api_key_here" > .env
-دریافت کلید API
-1.	به سایت OpenRouter مراجعه کنید
-2.	حساب کاربری ایجاد کنید یا وارد شوید
-3.	از بخش API Keys، یک کلید جدید ایجاد کنید
-4.	کلید را در فایل .env قرار دهید
-استفاده
-دستور اصلی
+# Test on a specific domain (e.g., Technology & Digital)
+python evaluation/benchmark.py --model gpt-4o-mini --domain "فناوری و دیجیتال" --limit 10
 
-python cli.py generate "کلیدواژه" "موضوع" [OPTIONS]
-پارامترها
-•	کلیدواژه: کلمه کلیدی اصلی برای عنوان (اجباری)
-•	موضوع: حوزه موضوعی عنوان (اجباری)
-گزینه‌ها
-•	--tone, -t: تنظیم لحن عنوان (پیش‌فرض: formal)
-o	مقادیر مجاز: formal, informal, professional, friendly, modern
-•	--mock: استفاده از حالت آزمایشی (بدون اتصال به API)
-مثال‌ها
-تولید عنوان رسمی:
+# Run benchmark on all 500 samples
+python evaluation/benchmark.py --model gpt-4o-mini
+4. Generate Evaluation Plots
+bash
+python evaluation/plot_results.py
+Plots will be saved in evaluation/charts/.
 
-python cli.py generate "هوش مصنوعی" "تحلیل داده" --tone formal
-تولید عنوان دوستانه:
+5. Use the CLI for Single Title Generation
+bash
+python cli.py generate "هوش مصنوعی" "کاربردهای هوش مصنوعی در زندگی روزمره" --model qwen
+🗝️ API Key Configuration
+To run the benchmark with the actual GPT-4o-mini model, you need an API key from Avalai (or OpenAI).
 
-python cli.py generate "بازی‌های ویدیویی" "سرگرمی" --tone friendly
-استفاده از حالت آزمایشی:
+Obtain your API key from your provider.
 
-python cli.py generate "بلاکچین" "امنیت سایبری" --mock
-ساختار پروژه
-persian-title-generator/
-├── cli.py                 # فایل اصلی برنامه
-├── requirements.txt       # dependencies پروژه
-├── .gitignore            # فایل ignore گیت
-├── README.md             # فایل راهنما
-└── result1.png           # عکس نمونه از خروجی برنامه
-توسعه
-وابستگی‌ها
-لیست کامل وابستگی‌ها در فایل requirements.txt موجود است:
-•	typer: ساخت CLI
-•	httpx: ارتباط با API
-•	pydantic: validation داده‌ها
-•	python-dotenv: مدیریت متغیرهای محیطی
-•	rich: نمایش زیبای خروجی در ترمینال
-•	arabic-reshaper و python-bidi: پردازش متون فارسی
-اضافه کردن ویژگی جدید
-1.	dependency جدید را به requirements.txt اضافه کنید
-2.	از typer برای اضافه کردن دستورات جدید استفاده کنید
-3.	مدل‌های داده را در کلاس TitleRequest گسترش دهید
-4.	سرویس جدید را در کلاس OpenRouterService پیاده‌سازی کنید
-پشتیبانی
-اگر با مشکلی مواجه شدید یا سوالی دارید، لطفاً از طریق Issues گیت‌هاب مطرح کنید.
-توجه
-•	این ابزار از سرویس OpenRouter استفاده می‌کند که نیاز به API Key دارد
-•	مطمئن شوید کلید API خود را در فایل .env ذخیره کرده‌اید
-•	از به اشتراک گذاشتن کلید API خود خودداری کنید
+Open evaluation/benchmark.py.
 
+Replace the placeholder API key in the file:
+
+python
+AVALAI_API_KEY = "your-api-key-here"
+⚠️ Important: Ensure that your API key is never committed to the repository. Use .env files for production.
+
+📊 Results Summary
+Dataset: 500 samples from 5 domains (Technology, Health, Business, Education, Lifestyle).
+
+Model: GPT-4o-mini (OpenAI).
+
+Success Rate: 98.8% (500 out of 506 requests).
+
+Keyword Inclusion Accuracy: 95.2%.
+
+Length Compliance (50–60 chars): 100%.
+
+Average Title Length: 55.9 ± 3.53 characters.
+
+Mean Response Time: 1.32 ± 0.67 seconds.
+
+Domain-Specific Performance
+Domain	Keyword Inclusion	Avg Length	Response Time (s)
+Technology & Digital	93.0%	55.9 ± 3.27	1.24 ± 0.83
+Health & Medicine	100.0%	55.8 ± 3.63	1.30 ± 0.51
+Business & Startups	88.0%	55.7 ± 3.68	1.31 ± 0.55
+Education & Learning	97.0%	56.1 ± 3.51	1.41 ± 0.91
+Lifestyle	98.0%	55.9 ± 3.59	1.32 ± 0.41
+📄 Paper
+The corresponding paper is currently under review at Data Mining and Knowledge Discovery (Springer Nature).
+
+🔗 GitHub Repository: https://github.com/stahan04/persian-title-generator
+
+📜 License
+This project is licensed under the MIT License — see the LICENSE file for details.
+
+✍️ Author
+Sara Tahan
+Department of Computer Engineering, Qom Branch
+Islamic Azad University, Qom, Iran
+📧 s.tahan1365@gmail.com
+🔗 GitHub
+
+text
+
+---
