@@ -1,5 +1,5 @@
-Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation: An Empirical Study on 500 Samples 
-# Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation
+ 
+# Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation: An Empirical Study on 500 Samples
 
 This repository contains the complete source code, dataset, and experimental results for the paper:
 
