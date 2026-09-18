@@ -9,6 +9,12 @@ Metrics:
 - BLEU
 - ROUGE-L
 - BERTScore
+
+Persian tokenization:
+- Hazm
+
+Raw benchmark files are preserved.
+Evaluated results are saved as separate CSV files.
 """
 
 import argparse
@@ -22,7 +28,6 @@ from nltk.translate.bleu_score import (
     SmoothingFunction,
     sentence_bleu,
 )
-from rouge_score import rouge_scorer
 
 
 # ============================================================
@@ -35,11 +40,6 @@ RESULTS_DIR = BASE_DIR / "results"
 BERT_MODEL = "bert-base-multilingual-cased"
 
 smoothing = SmoothingFunction().method1
-
-rouge = rouge_scorer.RougeScorer(
-    ["rougeL"],
-    use_stemmer=False,
-)
 
 
 # ============================================================
@@ -68,7 +68,8 @@ def calculate_bleu(
     prediction,
 ):
     """
-    Calculate sentence-level BLEU.
+    Calculate sentence-level BLEU
+    using Hazm tokenization.
     """
 
     reference_tokens = tokenize(
@@ -98,28 +99,117 @@ def calculate_bleu(
 # ROUGE-L
 # ============================================================
 
+def lcs_length(
+    reference_tokens,
+    prediction_tokens,
+):
+    """
+    Calculate the length of the
+    Longest Common Subsequence (LCS).
+    """
+
+    if (
+        not reference_tokens
+        or not prediction_tokens
+    ):
+        return 0
+
+    previous = [
+        0
+    ] * (
+        len(prediction_tokens) + 1
+    )
+
+    for reference_token in reference_tokens:
+
+        current = [0]
+
+        for index, prediction_token in enumerate(
+            prediction_tokens,
+            start=1,
+        ):
+
+            if (
+                reference_token
+                == prediction_token
+            ):
+
+                current.append(
+                    previous[index - 1] + 1
+                )
+
+            else:
+
+                current.append(
+                    max(
+                        previous[index],
+                        current[index - 1],
+                    )
+                )
+
+        previous = current
+
+    return previous[-1]
+
+
 def calculate_rouge_l(
     reference,
     prediction,
 ):
     """
-    Calculate ROUGE-L F1 score.
+    Calculate ROUGE-L F1 using
+    Hazm-tokenized Persian text.
     """
 
+    reference_tokens = tokenize(
+        reference
+    )
+
+    prediction_tokens = tokenize(
+        prediction
+    )
+
     if (
-        pd.isna(reference)
-        or pd.isna(prediction)
+        not reference_tokens
+        or not prediction_tokens
     ):
         return 0.0
 
-    scores = rouge.score(
-        str(reference),
-        str(prediction),
+    lcs = lcs_length(
+        reference_tokens,
+        prediction_tokens,
     )
 
-    return float(
-        scores["rougeL"].fmeasure
+    if lcs == 0:
+        return 0.0
+
+    precision = (
+        lcs
+        / len(prediction_tokens)
     )
+
+    recall = (
+        lcs
+        / len(reference_tokens)
+    )
+
+    if (
+        precision + recall
+        == 0
+    ):
+        return 0.0
+
+    f1 = (
+        2
+        * precision
+        * recall
+        / (
+            precision
+            + recall
+        )
+    )
+
+    return float(f1)
 
 
 # ============================================================
@@ -131,7 +221,8 @@ def calculate_bertscore(
     predictions,
 ):
     """
-    Calculate multilingual BERTScore F1.
+    Calculate multilingual
+    BERTScore F1.
     """
 
     device = (
@@ -140,16 +231,23 @@ def calculate_bertscore(
         else "cpu"
     )
 
+    print(
+        f"BERTScore device: {device}"
+    )
+
     _, _, f1 = bert_score(
         predictions,
         references,
         model_type=BERT_MODEL,
-        lang="fa",
         device=device,
         verbose=False,
     )
 
-    return f1.cpu().tolist()
+    return (
+        f1
+        .cpu()
+        .tolist()
+    )
 
 
 # ============================================================
@@ -159,17 +257,33 @@ def calculate_bertscore(
 def evaluate_file(csv_path):
     """
     Evaluate one benchmark result CSV.
+
+    Raw input file is preserved.
+
+    Example:
+
+    results_gpt_4o_mini.csv
+
+    becomes:
+
+    evaluated_results_gpt_4o_mini.csv
     """
 
-    csv_path = Path(csv_path)
+    csv_path = Path(
+        csv_path
+    )
 
     if not csv_path.exists():
+
         raise FileNotFoundError(
             f"Result file not found: "
             f"{csv_path}"
         )
 
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(
+        csv_path,
+        encoding="utf-8-sig",
+    )
 
     required_columns = {
         "reference_title",
@@ -182,34 +296,49 @@ def evaluate_file(csv_path):
     )
 
     if missing:
+
         raise ValueError(
             "Missing required columns: "
-            + ", ".join(sorted(missing))
+            + ", ".join(
+                sorted(missing)
+            )
         )
 
-    # Evaluate only successful generations.
+    # --------------------------------------------------------
+    # Select valid generations
+    # --------------------------------------------------------
+
     if "success" in df.columns:
+
         valid_mask = (
             df["success"]
             .astype(str)
             .str.lower()
             .eq("true")
         )
+
     else:
+
         valid_mask = (
-            df["title"].notna()
+            df["title"]
+            .notna()
         )
 
-    valid_indices = df.index[
-        valid_mask
-    ].tolist()
+    valid_indices = (
+        df.index[
+            valid_mask
+        ]
+        .tolist()
+    )
 
     if not valid_indices:
+
         print(
             f"No valid generations in "
             f"{csv_path.name}"
         )
-        return
+
+        return None
 
     references = (
         df.loc[
@@ -231,9 +360,15 @@ def evaluate_file(csv_path):
         .tolist()
     )
 
-    # --------------------------------------------------------
+
+    # ========================================================
     # BLEU
-    # --------------------------------------------------------
+    # ========================================================
+
+    print(
+        f"Calculating BLEU for "
+        f"{csv_path.name}..."
+    )
 
     bleu_values = [
         calculate_bleu(
@@ -247,9 +382,15 @@ def evaluate_file(csv_path):
         )
     ]
 
-    # --------------------------------------------------------
+
+    # ========================================================
     # ROUGE-L
-    # --------------------------------------------------------
+    # ========================================================
+
+    print(
+        f"Calculating ROUGE-L for "
+        f"{csv_path.name}..."
+    )
 
     rouge_values = [
         calculate_rouge_l(
@@ -263,9 +404,10 @@ def evaluate_file(csv_path):
         )
     ]
 
-    # --------------------------------------------------------
+
+    # ========================================================
     # BERTScore
-    # --------------------------------------------------------
+    # ========================================================
 
     print(
         f"Calculating BERTScore for "
@@ -279,38 +421,60 @@ def evaluate_file(csv_path):
         )
     )
 
-    # Initialize columns.
+
+    # ========================================================
+    # Add metric columns
+    # ========================================================
+
     df["bleu"] = float("nan")
+
     df["rouge_l"] = float("nan")
+
     df["bert_score"] = float("nan")
 
-    # Store metrics.
+
     df.loc[
         valid_indices,
         "bleu",
     ] = bleu_values
+
 
     df.loc[
         valid_indices,
         "rouge_l",
     ] = rouge_values
 
+
     df.loc[
         valid_indices,
         "bert_score",
     ] = bert_values
 
-    # Save back to the same CSV.
+
+    # ========================================================
+    # Save evaluated file separately
+    # ========================================================
+
+    output_path = (
+        csv_path.parent
+        / f"evaluated_{csv_path.name}"
+    )
+
     df.to_csv(
-        csv_path,
+        output_path,
         index=False,
         encoding="utf-8-sig",
     )
 
-    # Summary.
+
+    # ========================================================
+    # Summary
+    # ========================================================
+
     print()
     print(
-        f"Evaluated: {csv_path.name}"
+        f"Evaluated: "
+        f"{csv_path.name}"
     )
 
     print(
@@ -333,14 +497,27 @@ def evaluate_file(csv_path):
         f"{sum(bert_values) / len(bert_values):.4f}"
     )
 
+    print(
+        f"Saved: "
+        f"{output_path}"
+    )
+
+    print()
+
+    return output_path
+
 
 # ============================================================
-# Evaluate all result files
+# Evaluate all raw result files
 # ============================================================
 
 def evaluate_all():
     """
-    Evaluate every benchmark result CSV.
+    Evaluate every raw benchmark
+    result CSV.
+
+    evaluated_*.csv files are
+    intentionally ignored.
     """
 
     files = sorted(
@@ -350,12 +527,14 @@ def evaluate_all():
     )
 
     if not files:
+
         raise FileNotFoundError(
-            f"No result files found in "
+            f"No raw result files found in "
             f"{RESULTS_DIR}"
         )
 
     for csv_path in files:
+
         evaluate_file(
             csv_path
         )
@@ -379,8 +558,8 @@ def main():
         type=str,
         default=None,
         help=(
-            "Evaluate one CSV file. "
-            "If omitted, all result "
+            "Evaluate one raw result CSV. "
+            "If omitted, all raw result "
             "files are evaluated."
         ),
     )
@@ -388,10 +567,13 @@ def main():
     args = parser.parse_args()
 
     if args.file:
+
         evaluate_file(
             args.file
         )
+
     else:
+
         evaluate_all()
 
 
