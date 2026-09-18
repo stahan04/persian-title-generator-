@@ -26,8 +26,6 @@ console = Console()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load local environment variables.
-# The .env file is ignored by Git and must never be committed.
 load_dotenv(BASE_DIR / ".env")
 
 DATASET_PATH = BASE_DIR / "persian_seo_dataset.csv"
@@ -41,8 +39,6 @@ BASE_URL = os.getenv(
     "https://api.avalai.ir/v1",
 )
 
-# Public benchmark names -> provider model identifiers.
-# Provider identifiers can be overridden through environment variables.
 MODELS = {
     "gpt-4o-mini": os.getenv(
         "FW_MODEL_GPT",
@@ -72,13 +68,10 @@ SAVE_EVERY = 10
 
 def load_dataset():
     """
-    Load the 100-sample Persian SEO benchmark dataset.
+    Load the Persian SEO benchmark dataset.
 
-    Required columns:
-        id
-        domain
-        keyword
-        reference_title
+    reference_title is used ONLY for evaluation.
+    It must never be included in the generation prompt.
     """
 
     if not DATASET_PATH.exists():
@@ -113,7 +106,9 @@ def load_dataset():
         if missing_columns:
             raise ValueError(
                 "Dataset is missing required columns: "
-                + ", ".join(sorted(missing_columns))
+                + ", ".join(
+                    sorted(missing_columns)
+                )
             )
 
         rows = list(reader)
@@ -125,15 +120,19 @@ def load_dataset():
 # Prompt
 # ============================================================
 
-def build_prompt(keyword, reference_title):
+def build_prompt(domain, keyword):
     """
     Build the standardized Persian SEO title-generation prompt.
+
+    IMPORTANT:
+    reference_title is intentionally excluded from the prompt
+    to prevent reference leakage during evaluation.
     """
 
     return (
         "یک عنوان فارسی مناسب سئو تولید کن.\n"
-        f"کلیدواژه: {keyword}\n"
-        f"موضوع: {reference_title}\n\n"
+        f"حوزه: {domain}\n"
+        f"کلیدواژه: {keyword}\n\n"
         "قوانین:\n"
         "1. فقط یک عنوان فارسی تولید کن.\n"
         "2. کلیدواژه باید در عنوان وجود داشته باشد.\n"
@@ -155,7 +154,7 @@ def call_model(model_id, prompt):
     if not API_KEY:
         raise RuntimeError(
             "AVALAI_API_KEY is not configured. "
-            "Add it to your local .env file or environment variables."
+            "Add it to your local .env file."
         )
 
     payload = {
@@ -183,6 +182,7 @@ def call_model(model_id, prompt):
     ):
 
         try:
+
             start = time.perf_counter()
 
             with httpx.Client(
@@ -216,18 +216,22 @@ def call_model(model_id, prompt):
 
             return {
                 "title": title,
+
                 "latency": round(
                     latency,
                     4,
                 ),
+
                 "input_tokens": usage.get(
                     "prompt_tokens",
                     0,
                 ),
+
                 "output_tokens": usage.get(
                     "completion_tokens",
                     0,
                 ),
+
                 "total_tokens": usage.get(
                     "total_tokens",
                     0,
@@ -235,14 +239,18 @@ def call_model(model_id, prompt):
             }
 
         except Exception as exc:
+
             last_error = exc
 
             if attempt < MAX_RETRIES:
+
                 wait_time = 2 ** (
                     attempt - 1
                 )
 
-                time.sleep(wait_time)
+                time.sleep(
+                    wait_time
+                )
 
     raise RuntimeError(
         f"Request failed after "
@@ -252,7 +260,7 @@ def call_model(model_id, prompt):
 
 
 # ============================================================
-# Validation
+# Constraint evaluation
 # ============================================================
 
 def evaluate_constraints(
@@ -260,16 +268,18 @@ def evaluate_constraints(
     keyword,
 ):
     """
-    Evaluate prompt-level title constraints.
+    Evaluate prompt-level constraints.
     """
 
     title_length = len(title)
 
     return {
         "title_length": title_length,
+
         "has_keyword": (
             keyword in title
         ),
+
         "length_ok": (
             MIN_TITLE_LENGTH
             <= title_length
@@ -302,10 +312,12 @@ def load_completed_ids(output_path):
         reader = csv.DictReader(file)
 
         for row in reader:
+
             if (
                 row.get("success")
                 == "True"
             ):
+
                 completed.add(
                     str(row["id"])
                 )
@@ -361,7 +373,9 @@ def save_rows(
         if not file_exists:
             writer.writeheader()
 
-        writer.writerows(rows)
+        writer.writerows(
+            rows
+        )
 
 
 # ============================================================
@@ -385,6 +399,7 @@ def run_benchmark(
     dataset = load_dataset()
 
     if limit is not None:
+
         if limit <= 0:
             raise ValueError(
                 "--limit must be greater than 0."
@@ -460,6 +475,8 @@ def run_benchmark(
                 sample["keyword"].strip()
             )
 
+            # IMPORTANT:
+            # Used only later for evaluation.
             reference_title = (
                 sample[
                     "reference_title"
@@ -470,26 +487,34 @@ def run_benchmark(
                 "id": sample_id,
                 "domain": domain,
                 "keyword": keyword,
+
                 "reference_title":
                     reference_title,
+
                 "model": model_name,
                 "title": "",
+
                 "title_length": 0,
                 "has_keyword": False,
                 "length_ok": False,
+
                 "latency": 0,
+
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "total_tokens": 0,
+
                 "success": False,
                 "error": "",
             }
 
             try:
 
+                # reference_title is NOT
+                # passed to the model.
                 prompt = build_prompt(
+                    domain,
                     keyword,
-                    reference_title,
                 )
 
                 response = call_model(
@@ -497,9 +522,9 @@ def run_benchmark(
                     prompt,
                 )
 
-                title = (
-                    response["title"]
-                )
+                title = response[
+                    "title"
+                ]
 
                 constraints = (
                     evaluate_constraints(
@@ -512,23 +537,29 @@ def run_benchmark(
                     {
                         "title":
                             title,
+
                         **constraints,
+
                         "latency":
                             response[
                                 "latency"
                             ],
+
                         "input_tokens":
                             response[
                                 "input_tokens"
                             ],
+
                         "output_tokens":
                             response[
                                 "output_tokens"
                             ],
+
                         "total_tokens":
                             response[
                                 "total_tokens"
                             ],
+
                         "success":
                             True,
                     }
@@ -540,12 +571,15 @@ def run_benchmark(
                     str(exc)[:300]
                 )
 
-            buffer.append(result)
+            buffer.append(
+                result
+            )
 
             if (
                 len(buffer)
                 >= SAVE_EVERY
             ):
+
                 save_rows(
                     buffer,
                     output_path,
@@ -558,6 +592,7 @@ def run_benchmark(
             )
 
     if buffer:
+
         save_rows(
             buffer,
             output_path,
@@ -581,6 +616,7 @@ def run_all(limit=None):
     """
 
     for model_name in MODELS:
+
         run_benchmark(
             model_name=model_name,
             limit=limit,
@@ -603,6 +639,7 @@ def main():
     parser.add_argument(
         "--model",
         default="all",
+
         choices=[
             "all",
             *MODELS.keys(),
@@ -613,6 +650,7 @@ def main():
         "--limit",
         type=int,
         default=None,
+
         help=(
             "Run only the first "
             "N samples."
@@ -622,11 +660,13 @@ def main():
     args = parser.parse_args()
 
     if args.model == "all":
+
         run_all(
             limit=args.limit
         )
 
     else:
+
         run_benchmark(
             model_name=args.model,
             limit=args.limit,
