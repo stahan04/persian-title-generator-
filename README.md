@@ -1,151 +1,302 @@
 # FW-TitleGen
 
-## A Unified Benchmark Framework for Evaluating Large Language Models in Persian SEO-Oriented Title Generation
+## A Unified Benchmark Framework for Evaluating Language Models in Persian SEO-Oriented Title Generation
 
-FW-TitleGen is a provider-independent benchmarking framework designed for the systematic and reproducible evaluation of Large Language Models (LLMs) in Persian SEO-oriented title generation.
+FW-TitleGen is a provider-independent benchmarking framework designed for the systematic and reproducible evaluation of language models in Persian SEO-oriented title generation.
 
-The framework provides a standardized pipeline for prompt execution, multi-model evaluation, metric computation, efficiency analysis, checkpointing, and automated reporting.
-
----
-
-## Overview
-
-FW-TitleGen focuses on evaluating LLMs rather than proposing a new language model.
-
-The framework enables multiple models to be evaluated under the same dataset, prompt constraints, and evaluation procedure, providing a consistent basis for comparing generation quality, latency, token usage, and monetary cost.
-
-### Main Benchmark Models
-
-* GPT-4o-mini
-* Claude Sonnet 5
-* Grok-4
-
-The main benchmark contains 100 Persian SEO title-generation samples.
+The framework provides a standardized experimental pipeline for title generation, quality evaluation, efficiency analysis, and comparative visualization. Its main contribution is the benchmarking framework and evaluation lifecycle rather than the development of a new language model.
 
 ---
 
-## Generation Task
+## Benchmark Task
 
-For each sample, the model receives a Persian SEO keyword and is instructed to generate a single Persian title satisfying the following constraints:
+Given a Persian SEO keyword and its domain, each model is instructed to generate a single Persian SEO-oriented title under the same generation constraints:
 
-* Include the target keyword
-* Produce one Persian title
-* Keep the title between 50 and 70 characters
-* Return no explanations or Markdown formatting
+- The target keyword must appear in the generated title.
+- Exactly one Persian title must be generated.
+- The title length must be between 50 and 70 characters.
+- No explanation, Markdown, or additional text is allowed.
+
+The reference title is used only for evaluation and is never provided to the model during generation.
+
+---
+
+## Models and Comparative Methods
+
+The main benchmark evaluates:
+
+- GPT-4o-mini
+- Claude Sonnet 5
+- Grok-4
+
+The extended comparative evaluation also supports:
+
+- Gemma 4 26B A4B IT
+- Rule-Based baseline
+
+All methods are evaluated using the same Persian SEO title-generation task and evaluation procedure.
+
+---
+
+## Dataset
+
+The benchmark uses a Persian SEO title-generation dataset containing 100 samples.
+
+Each sample contains:
+
+- `id`
+- `domain`
+- `keyword`
+- `reference_title`
+
+During generation, only the domain and keyword are included in the model prompt. The reference title is retained exclusively for post-generation quality evaluation.
 
 ---
 
 ## Evaluation Metrics
 
-FW-TitleGen uses multiple complementary metrics.
+FW-TitleGen performs multi-dimensional evaluation across generation quality and computational efficiency.
 
 ### Generation Quality
 
-* BLEU
-* ROUGE-L
-* BERTScore
+- **BLEU**
+- **ROUGE-L**
+- **BERTScore**
+
+Hazm-based Persian tokenization is used for BLEU and ROUGE-L computation. BERTScore provides a semantic similarity measure between generated and reference titles.
 
 ### Efficiency
 
-* End-to-end latency
-* Input tokens
-* Output tokens
-* Total tokens
-* Monetary cost
+- **End-to-end latency**
+- **Input tokens**
+- **Output tokens**
+- **Total tokens**
 
-Persian-aware tokenization is used where appropriate during evaluation.
+This combination allows models to be compared beyond a single quality metric.
 
 ---
 
 ## Framework Pipeline
 
+```text
 Persian SEO Dataset
-↓
-Standardized Prompt
-↓
+        |
+        v
+Standardized Prompt Construction
+        |
+        v
 Model Execution
-├── GPT-4o-mini
-├── Claude Sonnet 5
-└── Grok-4
-↓
-Generated Titles
-↓
-Evaluation
-├── BLEU
-├── ROUGE-L
-├── BERTScore
-├── Latency
-├── Token Usage
-└── Cost
-↓
-Reports & Visualizations
+        |
+        v
+Raw Benchmark Results
+(results_*.csv)
+        |
+        v
+Quality Evaluation
+   |       |        |
+ BLEU   ROUGE-L  BERTScore
+        |
+        v
+Evaluated Results
+(evaluated_results_*.csv)
+        |
+        v
+Comparative Analysis
+   |          |          |
+Quality    Latency    Token Usage
+        |
+        v
+Visualizations
+```
 
 ---
 
 ## Framework Features
 
-* Provider-independent architecture
-* Standardized benchmarking lifecycle
-* Multi-model evaluation
-* Persian SEO-oriented generation
-* Checkpoint and resume support
-* Retry handling
-* Execution logging
-* Multi-dimensional evaluation
-* Automated CSV and JSON outputs
-* HTML reporting
-* Automated visualization
+- Provider-independent benchmarking design
+- Standardized prompt construction
+- Multi-model evaluation
+- Persian SEO-oriented title generation
+- Checkpoint and resume support
+- Automatic retry handling
+- Execution logging
+- Separation of raw and evaluated results
+- Persian-aware quality evaluation
+- Multi-dimensional performance analysis
+- Automated CSV output
+- Automated comparative visualization
+
+---
+
+## Project Structure
+
+```text
+FW-TitleGen/
+|
+|-- cli.py
+|-- persian_seo_dataset.csv
+|-- requirements.txt
+|-- README.md
+|
+|-- evaluation/
+|   |-- benchmark.py
+|   |-- evaluate_results.py
+|   |-- plot_results.py
+|   |
+|   `-- charts/
+|
+`-- results/
+```
+
+### `benchmark.py`
+
+Executes the selected models using the standardized prompt and stores raw benchmark results.
+
+### `evaluate_results.py`
+
+Computes BLEU, Persian-aware ROUGE-L, and BERTScore.
+
+Raw benchmark results are preserved, while evaluated results are written to separate `evaluated_results_*.csv` files.
+
+### `plot_results.py`
+
+Reads the evaluated result files and generates comparative figures.
+
+### `cli.py`
+
+Provides a simple command-line interface for running the benchmark.
 
 ---
 
 ## Visualizations
 
-The framework can generate visual comparisons including:
+FW-TitleGen supports automatic generation of:
 
-* BLEU
-* ROUGE-L
-* BERTScore
-* Latency
-* Latency distribution
-* Cost
-* Quality-latency analysis
-* Radar comparison
+- BLEU comparison
+- ROUGE-L comparison
+- BERTScore comparison
+- Average latency comparison
+- Latency distribution
+- Token usage comparison
+- Quality-latency trade-off
+- Multi-dimensional radar comparison
+
+Generated figures are stored in:
+
+```text
+evaluation/charts/
+```
 
 ---
 
-## Security
+## Installation
 
-API credentials must never be hard-coded in source files.
+Clone the repository and install the required dependencies:
 
-Store credentials in environment variables or a local `.env` file.
+```bash
+pip install -r requirements.txt
+```
 
-Example:
+---
 
-`AVALAI_API_KEY=your_api_key_here`
+## API Configuration
 
-The `.env` file must remain excluded from version control through `.gitignore`.
+API credentials must not be hard-coded in the source code.
+
+Create a local `.env` file in the project root:
+
+```text
+AVALAI_API_KEY=your_api_key_here
+```
+
+The `.env` file is excluded from version control through `.gitignore`.
+
+---
+
+## Usage
+
+### Run all main benchmark models
+
+```bash
+python cli.py --model all
+```
+
+### Run a single model
+
+```bash
+python cli.py --model gpt-4o-mini
+```
+
+```bash
+python cli.py --model claude-sonnet-5
+```
+
+```bash
+python cli.py --model grok-4
+```
+
+A limited test run can be performed using:
+
+```bash
+python cli.py --model all --limit 10
+```
+
+---
+
+## Evaluate Results
+
+After generation, calculate the quality metrics with:
+
+```bash
+python evaluation/evaluate_results.py
+```
+
+This produces separate evaluated result files containing:
+
+```text
+bleu
+rouge_l
+bert_score
+```
+
+---
+
+## Generate Visualizations
+
+After evaluation, run:
+
+```bash
+python evaluation/plot_results.py
+```
+
+The generated figures are saved in:
+
+```text
+evaluation/charts/
+```
+
+---
+
+## Reproducibility and Security
+
+FW-TitleGen separates model execution, evaluation, and visualization into independent stages.
+
+Raw generation results are preserved separately from evaluated results, allowing metrics and figures to be regenerated without repeating API calls.
+
+API credentials are loaded from environment variables and must never be committed to the repository.
 
 ---
 
 ## Research Purpose
 
-FW-TitleGen was developed as a research framework for studying the behavior and performance of LLMs under a standardized Persian title-generation task.
+FW-TitleGen was developed as a research framework for reproducible and multi-dimensional evaluation of language models in Persian SEO-oriented title generation.
 
-Its primary contribution is the reusable benchmarking pipeline and standardized evaluation lifecycle rather than a new language model.
+Rather than introducing a new language model, the framework provides a reusable experimental pipeline for standardized model execution, quality assessment, efficiency analysis, and comparative evaluation.
 
 ---
 
 ## Author
 
-**Sara Tahan**
-
-PhD Researcher in Artificial Intelligence
+**Sara Tahan**  
+PhD Researcher in Artificial Intelligence  
 Islamic Azad University of Qom
-
----
-
-## Repository Status
-
-This repository is being updated from an earlier single-model prototype to the current FW-TitleGen multi-model benchmarking framework.
-
-Additional experimental components and comparative baselines may be added as the research develops.
