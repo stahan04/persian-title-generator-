@@ -1,107 +1,151 @@
- 
-# Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation: An Empirical Study on 500 Samples
+# FW-TitleGen
 
-This repository contains the complete source code, dataset, and experimental results for the paper:
+## A Unified Benchmark Framework for Evaluating Large Language Models in Persian SEO-Oriented Title Generation
 
-> **"Evaluating GPT-4o-mini for Persian SEO-Friendly Title Generation: An Empirical Study on 500 Samples"**
+FW-TitleGen is a provider-independent benchmarking framework designed for the systematic and reproducible evaluation of Large Language Models (LLMs) in Persian SEO-oriented title generation.
 
-📌 **Status:** Currently under review at **Data Mining and Knowledge Discovery** (Springer Nature).
-
----
-
-## 📁 Project Structure
-.
-├── evaluation/
-│ ├── benchmark.py # Main benchmarking script (500 samples)
-│ ├── plot_results.py # Plot generation script (for charts)
-│ └── charts/ # Output directory for generated plots
-├── results/ # CSV files with experimental results
-├── persian_seo_dataset.csv # Dataset of 500 samples from 5 domains
-├── requirements.txt # Python dependencies
-├── cli.py # CLI tool for title generation
-└── README.md # This file
-
-text
+The framework provides a standardized pipeline for prompt execution, multi-model evaluation, metric computation, efficiency analysis, checkpointing, and automated reporting.
 
 ---
 
-## 🚀 How to Run
+## Overview
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/stahan04/persian-title-generator.git
-cd persian-title-generator
-2. Install Dependencies
-bash
-pip install -r requirements.txt
-3. Run Benchmark on a Subset
-bash
-# Test on 10 samples from all domains
-python evaluation/benchmark.py --model gpt-4o-mini --limit 10
+FW-TitleGen focuses on evaluating LLMs rather than proposing a new language model.
 
-# Test on a specific domain (e.g., Technology & Digital)
-python evaluation/benchmark.py --model gpt-4o-mini --domain "فناوری و دیجیتال" --limit 10
+The framework enables multiple models to be evaluated under the same dataset, prompt constraints, and evaluation procedure, providing a consistent basis for comparing generation quality, latency, token usage, and monetary cost.
 
-# Run benchmark on all 500 samples
-python evaluation/benchmark.py --model gpt-4o-mini
-4. Generate Evaluation Plots
-bash
-python evaluation/plot_results.py
-Plots will be saved in evaluation/charts/.
+### Main Benchmark Models
 
-5. Use the CLI for Single Title Generation
-bash
-python cli.py generate "هوش مصنوعی" "کاربردهای هوش مصنوعی در زندگی روزمره" --model qwen
-🗝️ API Key Configuration
-To run the benchmark with the actual GPT-4o-mini model, you need an API key from Avalai (or OpenAI).
+* GPT-4o-mini
+* Claude Sonnet 5
+* Grok-4
 
-Obtain your API key from your provider.
-
-Open evaluation/benchmark.py.
-
-Replace the placeholder API key in the file:
-
-python
-AVALAI_API_KEY = "your-api-key-here"
-⚠️ Important: Ensure that your API key is never committed to the repository. Use .env files for production.
-
-📊 Results Summary
-Dataset: 500 samples from 5 domains (Technology, Health, Business, Education, Lifestyle).
-
-Model: GPT-4o-mini (OpenAI).
-
-Success Rate: 98.8% (500 out of 506 requests).
-
-Keyword Inclusion Accuracy: 95.2%.
-
-Length Compliance (50–60 chars): 100%.
-
-Average Title Length: 55.9 ± 3.53 characters.
-
-Mean Response Time: 1.32 ± 0.67 seconds.
-
-Domain-Specific Performance
-Domain	Keyword Inclusion	Avg Length	Response Time (s)
-Technology & Digital	93.0%	55.9 ± 3.27	1.24 ± 0.83
-Health & Medicine	100.0%	55.8 ± 3.63	1.30 ± 0.51
-Business & Startups	88.0%	55.7 ± 3.68	1.31 ± 0.55
-Education & Learning	97.0%	56.1 ± 3.51	1.41 ± 0.91
-Lifestyle	98.0%	55.9 ± 3.59	1.32 ± 0.41
-📄 Paper
-The corresponding paper is currently under review at Data Mining and Knowledge Discovery (Springer Nature).
-
-🔗 GitHub Repository: https://github.com/stahan04/persian-title-generator
-
-📜 License
-This project is licensed under the MIT License — see the LICENSE file for details.
-
-✍️ Author
-Sara Tahan
-Department of Computer Engineering, Qom Branch
-Islamic Azad University, Qom, Iran
-📧 s.tahan1365@gmail.com
-🔗 GitHub
-
-text
+The main benchmark contains 100 Persian SEO title-generation samples.
 
 ---
+
+## Generation Task
+
+For each sample, the model receives a Persian SEO keyword and is instructed to generate a single Persian title satisfying the following constraints:
+
+* Include the target keyword
+* Produce one Persian title
+* Keep the title between 50 and 70 characters
+* Return no explanations or Markdown formatting
+
+---
+
+## Evaluation Metrics
+
+FW-TitleGen uses multiple complementary metrics.
+
+### Generation Quality
+
+* BLEU
+* ROUGE-L
+* BERTScore
+
+### Efficiency
+
+* End-to-end latency
+* Input tokens
+* Output tokens
+* Total tokens
+* Monetary cost
+
+Persian-aware tokenization is used where appropriate during evaluation.
+
+---
+
+## Framework Pipeline
+
+Persian SEO Dataset
+↓
+Standardized Prompt
+↓
+Model Execution
+├── GPT-4o-mini
+├── Claude Sonnet 5
+└── Grok-4
+↓
+Generated Titles
+↓
+Evaluation
+├── BLEU
+├── ROUGE-L
+├── BERTScore
+├── Latency
+├── Token Usage
+└── Cost
+↓
+Reports & Visualizations
+
+---
+
+## Framework Features
+
+* Provider-independent architecture
+* Standardized benchmarking lifecycle
+* Multi-model evaluation
+* Persian SEO-oriented generation
+* Checkpoint and resume support
+* Retry handling
+* Execution logging
+* Multi-dimensional evaluation
+* Automated CSV and JSON outputs
+* HTML reporting
+* Automated visualization
+
+---
+
+## Visualizations
+
+The framework can generate visual comparisons including:
+
+* BLEU
+* ROUGE-L
+* BERTScore
+* Latency
+* Latency distribution
+* Cost
+* Quality-latency analysis
+* Radar comparison
+
+---
+
+## Security
+
+API credentials must never be hard-coded in source files.
+
+Store credentials in environment variables or a local `.env` file.
+
+Example:
+
+`AVALAI_API_KEY=your_api_key_here`
+
+The `.env` file must remain excluded from version control through `.gitignore`.
+
+---
+
+## Research Purpose
+
+FW-TitleGen was developed as a research framework for studying the behavior and performance of LLMs under a standardized Persian title-generation task.
+
+Its primary contribution is the reusable benchmarking pipeline and standardized evaluation lifecycle rather than a new language model.
+
+---
+
+## Author
+
+**Sara Tahan**
+
+PhD Researcher in Artificial Intelligence
+Islamic Azad University of Qom
+
+---
+
+## Repository Status
+
+This repository is being updated from an earlier single-model prototype to the current FW-TitleGen multi-model benchmarking framework.
+
+Additional experimental components and comparative baselines may be added as the research develops.
