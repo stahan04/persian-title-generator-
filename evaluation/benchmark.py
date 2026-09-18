@@ -24,7 +24,7 @@ console = Console()
 # تنظیمات
 # ============================================================
 
-AVALAI_API_KEY = "aa-3NMZ7szStnxAZCu22vWFlmnMbTiZ7QOtAptlq2gQvmlTCCl7"
+AVALAI_API_KEY = os.getenv("AVALAI_API_KEY", "")
 AVALAI_BASE_URL = "https://api.avalai.ir/v1"
 
 MODELS = ["gpt-4o-mini", "gpt-3.5-turbo"]
