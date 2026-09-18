@@ -13,8 +13,10 @@ import time
 from pathlib import Path
 
 import httpx
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.progress import Progress
+
 
 # ============================================================
 # Configuration
@@ -23,14 +25,20 @@ from rich.progress import Progress
 console = Console()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load local environment variables.
+# The .env file is ignored by Git and must never be committed.
+load_dotenv(BASE_DIR / ".env")
+
 DATASET_PATH = BASE_DIR / "persian_seo_dataset.csv"
 RESULTS_DIR = BASE_DIR / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 API_KEY = os.getenv("AVALAI_API_KEY", "")
+
 BASE_URL = os.getenv(
     "AVALAI_BASE_URL",
-    "https://api.avalai.ir/v1"
+    "https://api.avalai.ir/v1",
 )
 
 # Public benchmark names -> provider model identifiers.
@@ -38,15 +46,15 @@ BASE_URL = os.getenv(
 MODELS = {
     "gpt-4o-mini": os.getenv(
         "FW_MODEL_GPT",
-        "gpt-4o-mini"
+        "gpt-4o-mini",
     ),
     "claude-sonnet-5": os.getenv(
         "FW_MODEL_CLAUDE",
-        "claude-sonnet-5"
+        "claude-sonnet-5",
     ),
     "grok-4": os.getenv(
         "FW_MODEL_GROK",
-        "grok-4"
+        "grok-4",
     ),
 }
 
@@ -63,23 +71,52 @@ SAVE_EVERY = 10
 # ============================================================
 
 def load_dataset():
+    """
+    Load the 100-sample Persian SEO benchmark dataset.
+
+    Required columns:
+        id
+        domain
+        keyword
+        reference_title
+    """
+
     if not DATASET_PATH.exists():
         raise FileNotFoundError(
             f"Dataset not found: {DATASET_PATH}"
         )
 
-    rows = []
-
     with open(
         DATASET_PATH,
         "r",
-        encoding="utf-8-sig"
+        encoding="utf-8-sig",
+        newline="",
     ) as file:
 
         reader = csv.DictReader(file)
 
-        for row in reader:
-            rows.append(row)
+        required_columns = {
+            "id",
+            "domain",
+            "keyword",
+            "reference_title",
+        }
+
+        available_columns = set(
+            reader.fieldnames or []
+        )
+
+        missing_columns = (
+            required_columns - available_columns
+        )
+
+        if missing_columns:
+            raise ValueError(
+                "Dataset is missing required columns: "
+                + ", ".join(sorted(missing_columns))
+            )
+
+        rows = list(reader)
 
     return rows
 
@@ -88,11 +125,15 @@ def load_dataset():
 # Prompt
 # ============================================================
 
-def build_prompt(keyword, topic=""):
+def build_prompt(keyword, reference_title):
+    """
+    Build the standardized Persian SEO title-generation prompt.
+    """
+
     return (
         "یک عنوان فارسی مناسب سئو تولید کن.\n"
         f"کلیدواژه: {keyword}\n"
-        f"موضوع: {topic}\n\n"
+        f"موضوع: {reference_title}\n\n"
         "قوانین:\n"
         "1. فقط یک عنوان فارسی تولید کن.\n"
         "2. کلیدواژه باید در عنوان وجود داشته باشد.\n"
@@ -107,10 +148,14 @@ def build_prompt(keyword, topic=""):
 # ============================================================
 
 def call_model(model_id, prompt):
+    """
+    Send one request to an OpenAI-compatible provider endpoint.
+    """
+
     if not API_KEY:
         raise RuntimeError(
             "AVALAI_API_KEY is not configured. "
-            "Set it as an environment variable."
+            "Add it to your local .env file or environment variables."
         )
 
     payload = {
@@ -118,7 +163,7 @@ def call_model(model_id, prompt):
         "messages": [
             {
                 "role": "user",
-                "content": prompt
+                "content": prompt,
             }
         ],
         "temperature": 0.7,
@@ -132,7 +177,10 @@ def call_model(model_id, prompt):
 
     last_error = None
 
-    for attempt in range(1, MAX_RETRIES + 1):
+    for attempt in range(
+        1,
+        MAX_RETRIES + 1,
+    ):
 
         try:
             start = time.perf_counter()
@@ -147,30 +195,42 @@ def call_model(model_id, prompt):
                     json=payload,
                 )
 
-            latency = time.perf_counter() - start
+            latency = (
+                time.perf_counter() - start
+            )
 
             response.raise_for_status()
 
             data = response.json()
 
             title = (
-                data["choices"][0]["message"]["content"]
+                data["choices"][0]
+                ["message"]["content"]
                 .strip()
             )
 
-            usage = data.get("usage", {})
+            usage = data.get(
+                "usage",
+                {},
+            )
 
             return {
                 "title": title,
-                "latency": round(latency, 4),
+                "latency": round(
+                    latency,
+                    4,
+                ),
                 "input_tokens": usage.get(
-                    "prompt_tokens", 0
+                    "prompt_tokens",
+                    0,
                 ),
                 "output_tokens": usage.get(
-                    "completion_tokens", 0
+                    "completion_tokens",
+                    0,
                 ),
                 "total_tokens": usage.get(
-                    "total_tokens", 0
+                    "total_tokens",
+                    0,
                 ),
             }
 
@@ -178,11 +238,15 @@ def call_model(model_id, prompt):
             last_error = exc
 
             if attempt < MAX_RETRIES:
-                wait_time = 2 ** (attempt - 1)
+                wait_time = 2 ** (
+                    attempt - 1
+                )
+
                 time.sleep(wait_time)
 
     raise RuntimeError(
-        f"Request failed after {MAX_RETRIES} attempts: "
+        f"Request failed after "
+        f"{MAX_RETRIES} attempts: "
         f"{last_error}"
     )
 
@@ -191,13 +255,21 @@ def call_model(model_id, prompt):
 # Validation
 # ============================================================
 
-def evaluate_constraints(title, keyword):
+def evaluate_constraints(
+    title,
+    keyword,
+):
+    """
+    Evaluate prompt-level title constraints.
+    """
 
     title_length = len(title)
 
     return {
         "title_length": title_length,
-        "has_keyword": keyword in title,
+        "has_keyword": (
+            keyword in title
+        ),
         "length_ok": (
             MIN_TITLE_LENGTH
             <= title_length
@@ -211,6 +283,9 @@ def evaluate_constraints(title, keyword):
 # ============================================================
 
 def load_completed_ids(output_path):
+    """
+    Read successfully completed sample IDs.
+    """
 
     if not output_path.exists():
         return set()
@@ -220,19 +295,31 @@ def load_completed_ids(output_path):
     with open(
         output_path,
         "r",
-        encoding="utf-8-sig"
+        encoding="utf-8-sig",
+        newline="",
     ) as file:
 
         reader = csv.DictReader(file)
 
         for row in reader:
-            if row.get("success") == "True":
-                completed.add(str(row["id"]))
+            if (
+                row.get("success")
+                == "True"
+            ):
+                completed.add(
+                    str(row["id"])
+                )
 
     return completed
 
 
-def save_rows(rows, output_path):
+def save_rows(
+    rows,
+    output_path,
+):
+    """
+    Append benchmark results to CSV.
+    """
 
     if not rows:
         return
@@ -241,7 +328,7 @@ def save_rows(rows, output_path):
         "id",
         "domain",
         "keyword",
-        "topic",
+        "reference_title",
         "model",
         "title",
         "title_length",
@@ -255,18 +342,20 @@ def save_rows(rows, output_path):
         "error",
     ]
 
-    file_exists = output_path.exists()
+    file_exists = (
+        output_path.exists()
+    )
 
     with open(
         output_path,
         "a",
         newline="",
-        encoding="utf-8-sig"
+        encoding="utf-8-sig",
     ) as file:
 
         writer = csv.DictWriter(
             file,
-            fieldnames=fields
+            fieldnames=fields,
         )
 
         if not file_exists:
@@ -281,20 +370,31 @@ def save_rows(rows, output_path):
 
 def run_benchmark(
     model_name,
-    limit=None
+    limit=None,
 ):
+    """
+    Run the benchmark for one model.
+    """
 
     if model_name not in MODELS:
         raise ValueError(
-            f"Unsupported model: {model_name}"
+            f"Unsupported model: "
+            f"{model_name}"
         )
 
     dataset = load_dataset()
 
-    if limit:
+    if limit is not None:
+        if limit <= 0:
+            raise ValueError(
+                "--limit must be greater than 0."
+            )
+
         dataset = dataset[:limit]
 
-    model_id = MODELS[model_name]
+    model_id = MODELS[
+        model_name
+    ]
 
     safe_model_name = (
         model_name
@@ -307,18 +407,23 @@ def run_benchmark(
         / f"results_{safe_model_name}.csv"
     )
 
-    completed_ids = load_completed_ids(
-        output_path
+    completed_ids = (
+        load_completed_ids(
+            output_path
+        )
     )
 
     pending = [
         row
         for row in dataset
-        if str(row["id"]) not in completed_ids
+        if str(row["id"])
+        not in completed_ids
     ]
 
     console.print(
-        f"\n[bold cyan]FW-TitleGen[/bold cyan]"
+        "\n[bold cyan]"
+        "FW-TitleGen"
+        "[/bold cyan]"
     )
 
     console.print(
@@ -327,7 +432,8 @@ def run_benchmark(
 
     console.print(
         f"Total: {len(dataset)} | "
-        f"Completed: {len(completed_ids)} | "
+        f"Completed: "
+        f"{len(completed_ids)} | "
         f"Pending: {len(pending)}"
     )
 
@@ -337,21 +443,35 @@ def run_benchmark(
 
         task = progress.add_task(
             f"Running {model_name}",
-            total=len(pending)
+            total=len(pending),
         )
 
         for sample in pending:
 
-            sample_id = sample["id"]
-            domain = sample.get("domain", "")
-            keyword = sample["keyword"].strip()
-            topic = sample.get("topic", "").strip()
+            sample_id = (
+                sample["id"].strip()
+            )
+
+            domain = (
+                sample["domain"].strip()
+            )
+
+            keyword = (
+                sample["keyword"].strip()
+            )
+
+            reference_title = (
+                sample[
+                    "reference_title"
+                ].strip()
+            )
 
             result = {
                 "id": sample_id,
                 "domain": domain,
                 "keyword": keyword,
-                "topic": topic,
+                "reference_title":
+                    reference_title,
                 "model": model_name,
                 "title": "",
                 "title_length": 0,
@@ -369,63 +489,85 @@ def run_benchmark(
 
                 prompt = build_prompt(
                     keyword,
-                    topic
+                    reference_title,
                 )
 
                 response = call_model(
                     model_id,
-                    prompt
+                    prompt,
                 )
 
-                title = response["title"]
+                title = (
+                    response["title"]
+                )
 
                 constraints = (
                     evaluate_constraints(
                         title,
-                        keyword
+                        keyword,
                     )
                 )
 
                 result.update(
                     {
-                        "title": title,
+                        "title":
+                            title,
                         **constraints,
                         "latency":
-                            response["latency"],
+                            response[
+                                "latency"
+                            ],
                         "input_tokens":
-                            response["input_tokens"],
+                            response[
+                                "input_tokens"
+                            ],
                         "output_tokens":
-                            response["output_tokens"],
+                            response[
+                                "output_tokens"
+                            ],
                         "total_tokens":
-                            response["total_tokens"],
-                        "success": True,
+                            response[
+                                "total_tokens"
+                            ],
+                        "success":
+                            True,
                     }
                 )
 
             except Exception as exc:
 
-                result["error"] = str(exc)[:300]
+                result["error"] = (
+                    str(exc)[:300]
+                )
 
             buffer.append(result)
 
-            if len(buffer) >= SAVE_EVERY:
+            if (
+                len(buffer)
+                >= SAVE_EVERY
+            ):
                 save_rows(
                     buffer,
-                    output_path
+                    output_path,
                 )
+
                 buffer = []
 
-            progress.advance(task)
+            progress.advance(
+                task
+            )
 
     if buffer:
         save_rows(
             buffer,
-            output_path
+            output_path,
         )
 
     console.print(
-        f"[green]Results saved to: "
-        f"{output_path}[/green]"
+        "[green]"
+        "Results saved to: "
+        f"{output_path}"
+        "[/green]"
     )
 
 
@@ -434,11 +576,14 @@ def run_benchmark(
 # ============================================================
 
 def run_all(limit=None):
+    """
+    Run the benchmark for all configured models.
+    """
 
     for model_name in MODELS:
         run_benchmark(
             model_name=model_name,
-            limit=limit
+            limit=limit,
         )
 
 
@@ -450,7 +595,8 @@ def main():
 
     parser = argparse.ArgumentParser(
         description=(
-            "FW-TitleGen Persian LLM Benchmark"
+            "FW-TitleGen Persian "
+            "LLM Benchmark"
         )
     )
 
@@ -459,7 +605,7 @@ def main():
         default="all",
         choices=[
             "all",
-            *MODELS.keys()
+            *MODELS.keys(),
         ],
     )
 
@@ -467,7 +613,10 @@ def main():
         "--limit",
         type=int,
         default=None,
-        help="Run only the first N samples.",
+        help=(
+            "Run only the first "
+            "N samples."
+        ),
     )
 
     args = parser.parse_args()
@@ -476,10 +625,11 @@ def main():
         run_all(
             limit=args.limit
         )
+
     else:
         run_benchmark(
             model_name=args.model,
-            limit=args.limit
+            limit=args.limit,
         )
 
 
