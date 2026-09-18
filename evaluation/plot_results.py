@@ -48,19 +48,19 @@ CHARTS_DIR.mkdir(
 
 MODEL_FILES = {
     "GPT-4o-mini":
-        "results_gpt_4o_mini.csv",
+        "evaluated_results_gpt_4o_mini.csv",
 
     "Claude Sonnet 5":
-        "results_claude_sonnet_5.csv",
+        "evaluated_results_claude_sonnet_5.csv",
 
     "Grok-4":
-        "results_grok_4.csv",
+        "evaluated_results_grok_4.csv",
 
     "Gemma 4 26B A4B IT":
-        "results_gemma_4_26b_a4b_it.csv",
+        "evaluated_results_gemma_4_26b_a4b_it.csv",
 
     "Rule-Based":
-        "results_rule_based.csv",
+        "evaluated_results_rule_based.csv",
 }
 
 
